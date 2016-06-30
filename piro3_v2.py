@@ -16,7 +16,7 @@ def calcA(a, b):
     return (b[0] - a[0]) / (b[1] - a[1])
 
 def calcC(a, b):
-    return ((a[1] * (b[0] - a[0])) / (b[1] - a[1])) * -1.0 + b[0]
+    return ((a[1] * (b[0] - a[0])) / (b[1] - a[1])) * -1.0 + a[0]
 
 def findDescriptivePoint(contour):
     a = contour[0]
@@ -42,14 +42,14 @@ def calculateMidPoint(p1, p2, pD, A, C):
     newPx = (Cprim - C) / (A - 1/A)
     newPy = A * newPx + C
     newP = []
-    newP.append(newPx)
     newP.append(newPy)
+    newP.append(newPx)
     return newP
 
 def isBlob(picture, contour):
     descPoint, A, C = findDescriptivePoint(contour)
     midPoint = calculateMidPoint(contour[0], contour[len(contour) - 1], descPoint, A, C)
-    if picture[midPoint[1], midPoint[0], -1] != 0:
+    if picture[midPoint[0], midPoint[1], -1] != 0:
         return True
     else:
         return False
@@ -291,11 +291,11 @@ def findEdges(rgba):
         tempc.append(contour[i])
     for i in range(1,fstart):
         tempc.append(contour[i])
-    result.append(np.asarray(tempc))
+        result.append(np.asarray(tempc))
     #print 'Result:',result
 
-    for edge in result:
-        print("Is blob: ", isBlob(rgba, edge))
+    #for edge in result:
+    #    print("Is blob: ", isBlob(rgba, edge))
 
     return result
 
