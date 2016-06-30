@@ -18,6 +18,9 @@ def calcA(a, b):
 def calcC(a, b):
     return ((a[1] * (b[0] - a[0])) / (b[1] - a[1])) * -1.0 + b[0]
 
+def calculateDistance(A,B,C,p):
+    return abs(A * p[1] + B * p[0] + C) / math.sqrt(A * A + B * B)
+
 def findDescriptivePoint(contour):
     a = contour[0]
     b = contour[len(contour) - 1]
@@ -30,7 +33,7 @@ def findDescriptivePoint(contour):
     maxP = a
 
     for p in contour:
-        dist = abs(A * p[1] + B * p[0] + C) / math.sqrt(A * A + B * B)
+        dist = calculateDistance(A,B,C,p)
         if dist > max:
             max = dist
             maxP = p
@@ -386,6 +389,9 @@ def compareByProportions(seg1,seg2):
             if (comp<mincomp):
                 mincomp=comp
     return mincomp
+
+def compareDistances(shape1,shape2):
+    
 
 def main():
     path=sys.argv[1]
