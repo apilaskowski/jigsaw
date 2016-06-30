@@ -2,7 +2,7 @@
 """
 Created on Thu May 26 10:30:42 2016
 
-@author: Tomasz Sosnowski
+@author: Tomasz Sosnowski & Artur Laskowski
 """
 
 from skimage.measure import find_contours, approximate_polygon
@@ -11,6 +11,55 @@ import matplotlib.pyplot as plt
 import cv2
 import math
 import sys
+
+def calcA(a, b):
+    return (b[1] - a[1]) / (b[0] - a[0])
+
+def calcC(a, b):
+    return ((a[0] * (b[1] - a[1])) / (b[0] - a[0])) + b[1]
+
+def findDescriptivePoint(contour):
+    a = contour[0]
+    b = contour[len(contour) - 1]
+
+    A = calcA(a, b)
+    B = 1.0
+    C = calcC(a, b)
+
+    max = .0
+    maxP = a
+
+    for p in contour:
+        dist = abs(A * p[0] + B * p[1] + C) / Math.sqrt(A * A + B * B)
+        if dist > max:
+            max = dist
+            maxP = p
+
+    return maxP
+
+def calcU(p1, p2, pD):
+    denL = (p1[0] - p2[0])
+    denR = (p1[1] - p2[1])
+    denominator = denL * denL + denR * denR
+    meter = (pD[0] - p1[0]) * (p2[0] - p1[0]) + (pD[1] - p1[1]) * (p2[1] - p1[1])
+    return meter / denominator
+
+def calculateMidPoint(p1, p2, pD):
+    u = calcU(p1, p2, pD)
+    newPx = p1[0] + (p2[0] - p1[0]) * u
+    newPy = p1[1] + (p2[1] - p1[1]) * u
+    newP = []
+    newP.append(newPx)
+    newP.append(newPy)
+    return newP
+
+def isBlob(picture, contour):
+    descPoint = findDescriptivePoint(contour)
+    midPoint = calculateMidPoint(contour[0], contour[len(contour) - 1], descPoint)
+    if picture[midPoint[0]][midPoint[1]] != 0:
+        return True
+    else:
+        return False
 
 def normalizeEdge(edge,endCoords):
     multiply0=float(endCoords[0])/float(edge[-1][0])
@@ -81,7 +130,7 @@ def describeImage(img):
     contour=getContour(img)
     description=[]
     pivot=0
-    print contour
+    print (contour)
     plt.imshow(img)
     plt.gray()
     plt.plot(contour[:,1],contour[:,0])
@@ -97,13 +146,13 @@ def fitnessFunction(edgeDescription, pieceDescription):
     for edge in pieceDescription:
         comparsions.append(compareEdges(edgeDescription,edge))
     return np.min(comparsions)
-    
-    
+
+
 def loadImage(path,i):
     filename=path+str(i)+'.png'
     img = cv2.imread(filename,-1)
     return img
-    
+
 def loadImages(path,N):
     images=[]
     for i in range(0,N):
@@ -163,12 +212,12 @@ def getDistancesSum(contour,index):
     suma=0.0
     for i in range(0,len(contour)):
         suma+=distance(contour[i],contour[index])
-    
+
     return suma
 
 def getDistSum(apprx, i, j, k , o):
     suma = 0.0
-    suma += distance(apprx[i], apprx[j]) + distance(apprx[i], apprx[k]) + distance(apprx[i], apprx[o]) 
+    suma += distance(apprx[i], apprx[j]) + distance(apprx[i], apprx[k]) + distance(apprx[i], apprx[o])
     suma += distance(apprx[j], apprx[k]) + distance(apprx[j], apprx[o])
     suma += distance(apprx[k], apprx[o])
     return suma
@@ -183,7 +232,7 @@ def findEdges(rgba):
     #plt.show()
     contour=contours[0]
     apprx=approximate_polygon(contours[0], tolerance=15.0)
-    
+
     #print apprx
     maxpoints=[]
     #for i in range(4):
@@ -196,9 +245,9 @@ def findEdges(rgba):
     #            maxsum=csum
     #            maxi=j
     #   maxpoints.append(apprx[maxi])
-    
-    print(len(apprx))    
-    
+
+    print(len(apprx))
+
     maxa, maxb, maxc, maxd, maxval = 0,0,0,0,0
     for i in range(len(apprx)-1):
         for j in range(i+1, len(apprx)-1):
@@ -211,24 +260,24 @@ def findEdges(rgba):
     maxpoints.append(apprx[maxb])
     maxpoints.append(apprx[maxc])
     maxpoints.append(apprx[maxd])
-    
+
     #print(apprx)
     #print(maxpoints)
-    
+
     starting=0
     fstart=0
     #print maxpoints
-    
+
     plt.imshow(img2)
     plt.plot(apprx[:,1],apprx[:,0])
     maxp=np.asarray(maxpoints)
     plt.plot(maxp[:,1],maxp[:,0], marker='o', color='r', ls='')
     plt.show()
-    
+
     for i in range(len(contour)):
         colour=rgba[contour[i][0]-10,contour[i][1]-10,:]
-        print contour[i], colour
-    
+        print (contour[i], colour)
+
     for i in range(4):
         tempc=[]
         for j in range(starting,2*len(contour)):
@@ -236,7 +285,7 @@ def findEdges(rgba):
             #print maxpoints,contour[ind]
             tempc.append(np.array(contour[ind]).tolist())
             if (containsPoint(maxpoints,contour[ind]) and ind!=starting):
-                #print maxpoints,contour[ind],ind,starting,tempc    
+                #print maxpoints,contour[ind],ind,starting,tempc
                 if (starting==0):
                     fstart=ind
                     tempc=[]
@@ -320,11 +369,11 @@ def main():
             #break
         compares[i]=100.0
         best=np.argsort(compares)
-        print best
+        print( best)
         #break
     descriptions=[]
     #for img in images:
     #    descriptions.append(describeImage(img))
     #doWork(descriptions)
-    
+
 main()
