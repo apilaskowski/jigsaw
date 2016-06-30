@@ -13,50 +13,43 @@ import math
 import sys
 
 def calcA(a, b):
-    return (b[1] - a[1]) / (b[0] - a[0])
+    return (b[0] - a[0]) / (b[1] - a[1])
 
 def calcC(a, b):
-    return ((a[0] * (b[1] - a[1])) / (b[0] - a[0])) + b[1]
+    return ((a[1] * (b[0] - a[0])) / (b[1] - a[1])) * -1.0 + b[0]
 
 def findDescriptivePoint(contour):
     a = contour[0]
     b = contour[len(contour) - 1]
 
     A = calcA(a, b)
-    B = 1.0
+    B = -1.0
     C = calcC(a, b)
 
     max = .0
     maxP = a
 
     for p in contour:
-        dist = abs(A * p[0] + B * p[1] + C) / Math.sqrt(A * A + B * B)
+        dist = abs(A * p[1] + B * p[0] + C) / math.sqrt(A * A + B * B)
         if dist > max:
             max = dist
             maxP = p
 
-    return maxP
+    return maxP, A, C
 
-def calcU(p1, p2, pD):
-    denL = (p1[0] - p2[0])
-    denR = (p1[1] - p2[1])
-    denominator = denL * denL + denR * denR
-    meter = (pD[0] - p1[0]) * (p2[0] - p1[0]) + (pD[1] - p1[1]) * (p2[1] - p1[1])
-    return meter / denominator
-
-def calculateMidPoint(p1, p2, pD):
-    u = calcU(p1, p2, pD)
-    newPx = p1[0] + (p2[0] - p1[0]) * u
-    newPy = p1[1] + (p2[1] - p1[1]) * u
+def calculateMidPoint(p1, p2, pD, A, C):
+    Cprim = pD[0] - pD[1]/A
+    newPx = (Cprim - C) / (A - 1/A)
+    newPy = A * newPx + C
     newP = []
     newP.append(newPx)
     newP.append(newPy)
     return newP
 
 def isBlob(picture, contour):
-    descPoint = findDescriptivePoint(contour)
-    midPoint = calculateMidPoint(contour[0], contour[len(contour) - 1], descPoint)
-    if picture[midPoint[0]][midPoint[1]] != 0:
+    descPoint, A, C = findDescriptivePoint(contour)
+    midPoint = calculateMidPoint(contour[0], contour[len(contour) - 1], descPoint, A, C)
+    if picture[midPoint[1], midPoint[0], -1] != 0:
         return True
     else:
         return False
@@ -191,7 +184,7 @@ def getSegmentSum(contour,index):
     return suma
 
 def getSegmentSumFor4(contour, i, j, k, o):
-    return getSegmentSum(contour, i) + getSegmentSum(contour, j) + getSegmentSum(contour, k) + getSegmentSum(contour, o);
+    return getSegmentSum(contour, i) + getSegmentSum(contour, j) + getSegmentSum(contour, k) + getSegmentSum(contour, o)
 
 def containsPoint(a,p):
     for i in range(len(a)):
@@ -300,6 +293,10 @@ def findEdges(rgba):
         tempc.append(contour[i])
     result.append(np.asarray(tempc))
     #print 'Result:',result
+
+    for edge in result:
+        print("Is blob: ", isBlob(rgba, edge))
+
     return result
 
 def avgColour(edge,img):
