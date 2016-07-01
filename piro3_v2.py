@@ -12,134 +12,14 @@ import cv2
 import math
 import sys
 
-def calcA(a, b):
-    return (b[0] - a[0]) / (b[1] - a[1])
+def distancePointToPoint(p1,p2):
+    return math.sqrt(((p1[0]-p2[0])**2)+((p1[1]-p2[1])**2))
 
-def calcC(a, b):
-    return ((a[1] * (b[0] - a[0])) / (b[1] - a[1])) * -1.0 + a[0]
+def distancePointToLine(A,B,C,p):
+    return abs(A * p[1] + B * p[0] + C) / math.sqrt(A * A + B * B)
 
-def findDescriptivePoint(contour):
-    a = contour[0]
-    b = contour[len(contour) - 1]
-
-    A = calcA(a, b)
-    B = -1.0
-    C = calcC(a, b)
-
-    max = .0
-    maxP = a
-
-    for p in contour:
-        dist = abs(A * p[1] + B * p[0] + C) / math.sqrt(A * A + B * B)
-        if dist > max:
-            max = dist
-            maxP = p
-
-    return maxP, A, C
-
-def calculateMidPoint(p1, p2, pD, A, C):
-    Cprim = pD[0] - pD[1]/A
-    newPx = (Cprim - C) / (A - 1/A)
-    newPy = A * newPx + C
-    newP = []
-    newP.append(newPy)
-    newP.append(newPx)
-    return newP
-
-def isBlob(picture, contour):
-    descPoint, A, C = findDescriptivePoint(contour)
-    midPoint = calculateMidPoint(contour[0], contour[len(contour) - 1], descPoint, A, C)
-    if picture[midPoint[0], midPoint[1], -1] != 0:
-        return True
-    else:
-        return False
-
-def normalizeEdge(edge,endCoords):
-    multiply0=float(endCoords[0])/float(edge[-1][0])
-    multiply1=float(endCoords[1])/float(edge[-1][1])
-    for i in range(0,len(edge)):
-        edge[i][0]=int(float(edge[i][0])*multiply0)
-        edge[i][1]=int(float(edge[i][1])*multiply1)
-    return edge
-
-def startWith0(edge):
-    translate0=0-edge[0][0]
-    translate1=0-edge[0][1]
-    for i in range(0,len(edge)):
-        edge[i][0]+=translate0
-        edge[i][1]+=translate1
-    return edge
-
-def compareNormalizedEdges(edge1,edge2):
-    if (len(edge2)>len(edge1)):
-        return compareNormalizedEdges(edge2,edge1)
-    err=0.0
-    for i in range(0,len(edge2)):
-        err+=((edge2[i][0]-edge1[i][0])**2)+((edge2[i][1]-edge1[i][1])**2)
-    for i in range(len(edge2),len(edge1)):
-        err+=edge1[i][0]**2+edge1[i][0]**2
-    err=err/len(edge1)
-    return err
-
-def compareEdges(edge1,edge2):
-    edge1=startWith0(edge1)
-    edge2=startWith0(edge2)
-    edge3=normalizeEdge(edge2,edge1[-1])
-    edge4=normalizeEdge(edge2,edge1[0])
-    comparsion1=compareNormalizedEdges(edge1,edge3)
-    comparsion2=compareNormalizedEdges(edge1,edge4)
-    return min(comparsion1,comparsion2)
-
-def getContour(img):
-    for contour in find_contours(img, 0):
-        aprx = approximate_polygon(contour, tolerance=1.0)
-        return aprx
-
-def isRight(p1,p2,p3):
-    tolerance=0.2
-    if (p1[1]==p2[1]):
-        if (p2[1]==p3[1]):
-            return False
-        a2=float(p2[0]-p3[0])/float(p2[1]-p3[1])
-        if (a2>(-1.0)*tolerance and a2<tolerance):
-            return True
-        return False
-    if (p2[1]==p3[1]):
-        if (p1[1]==p2[1]):
-            return False
-        a1=float(p1[0]-p2[0])/float(p1[1]-p2[1])
-        if (a1>(-1.0)*tolerance and a1<tolerance):
-            return True
-        return False
-    a1=float(p1[0]-p2[0])/float(p1[1]-p2[1])
-    a2=float(p2[0]-p3[0])/float(p2[1]-p3[1])
-    if (a2==0.0):
-        return False
-    if (a1>(1.0-tolerance)*(1/a2) and a1<(1.0+tolerance)*(1/a2)):
-        return True
-    return False
-
-def describeImage(img):
-    contour=getContour(img)
-    description=[]
-    pivot=0
-    print (contour)
-    plt.imshow(img)
-    plt.gray()
-    plt.plot(contour[:,1],contour[:,0])
-    plt.show()
-    for i in range(0,len(contour)-1):
-        if (isRight(contour[i-1],contour[i],contour[i+1])):
-            description.append(contour[(pivot+1):(i+1)])
-    #print description
-    return description
-
-def fitnessFunction(edgeDescription, pieceDescription):
-    comparsions=[]
-    for edge in pieceDescription:
-        comparsions.append(compareEdges(edgeDescription,edge))
-    return np.min(comparsions)
-
+def createPoint(x, y):
+    return [x, y]
 
 def loadImage(path,i):
     filename=path+str(i)+'.png'
@@ -152,67 +32,64 @@ def loadImages(path,N):
         images.append(loadImage(path,i))
     return images
 
-def doComparsion(edge,descriptions):
-    minindex=0
-    minres=fitnessFunction(edge,descriptions[minindex])
-    for i in range(1,len(descriptions)):
-        result=fitnessFunction(edge,descriptions[i])
-        if (result<minres):
-            minres=result
-            minindex=i
-    return minindex
+def calculateLineFactorA(a, b):
+    return (b[0] - a[0]) / (b[1] - a[1])
 
-def doWork(descriptions):
-    for i in range(0,len(descriptions)):
-        for j in range(0,len(descriptions[i])):
-            result=doComparsion(descriptions[i][j],descriptions)
-            sys.stdout.write(str(result))
-            sys.stdout.write(' ')
-        sys.stdout.write('\n')
+def calculateLineFactorC(a, b):
+    return ((a[1] * (b[0] - a[0])) / (b[1] - a[1])) * -1.0 + a[0]
 
-def distance(p1,p2):
-    d=math.sqrt(((p1[0]-p2[0])**2)+((p1[1]-p2[1])**2))
-    return d
+def calculateLineFactors(contour):
+    p1 , p2 = contour[0], contour[len(contour) - 1]
+    return calculateLineFactorA(p1, p2), -1.0, calculateLineFactorC(p1, p2)
 
-def getSegmentSum(contour,index):
-    suma=0.0
-    suma+=distance(contour[index-1],contour[index])
-    if ((index+1)<len(contour)):
-        suma+=distance(contour[index],contour[index+1])
-    else:
-        suma+=distance(contour[index],contour[-1])
-    return suma
+def findPointFarthestToLine(contour, facA, facB, facC):
+    max, maxP = .0, a
+    for point in contour:
+        dist = distancePointToLine(facA, facB, facC, point)
+        if dist > max:
+            max, maxP = dist, p
+    return maxP
 
-def getSegmentSumFor4(contour, i, j, k, o):
-    return getSegmentSum(contour, i) + getSegmentSum(contour, j) + getSegmentSum(contour, k) + getSegmentSum(contour, o)
+def findTipPoint(contour):
+    factorA, factorB, factorC = calculateLineFactors(contour)
+    maxP = findPointFarthestToLine(contour, factorA, factorB, factorC)
+    return maxP, A, C
+
+def findTipPointCastedToLine(p1, p2, pTip, A, C):
+    Cprim = pD[0] - pD[1]/A
+    newPx = (Cprim - C) / (A - 1/A)
+    newPy = A * newPx + C
+    return createPoint(newPy, newPx)
+
+def isBlob(picture, contour):
+    tipPoint, A, C = findTipPoint(contour)
+    castedPoint = findTipPointCastedToLine(contour[0], contour[len(contour) - 1], tipPoint, A, C)
+    if picture[castedPoint[0], castedPoint[1], -1] != 0:
+        return True
+    return False
+
+def calculateNearestSegmentsLenghtForPoint(contour,index):
+    return distancePointToPoint(contour[index-1],contour[index]) \
+        + distancePointToPoint(contour[index],contour[(index + 1) % len(contour)])
+
+def calculateNearestSegmentsLenghtForList(contour, points):
+    sum = .0
+    for p in points:
+        sum += calculateNearestSegmentsLenghtForPoint(contout, p)
+    return sum
 
 def containsPoint(a,p):
     for i in range(len(a)):
         if (a[i][0]==p[0] and a[i][1]==p[1]):
-            #print a,p
             return True
     return False
 
-def countPointsWithinRadius(a,p,r):
-    counter=0
-    for i in range(len(a)):
-        if (not (a[i][0]==p[0] and a[i][1]==p[1])):
-            if (distance(a[i],p)<r):
-                counter+=1
-    return counter
-
-def getDistancesSum(contour,index):
-    suma=0.0
-    for i in range(0,len(contour)):
-        suma+=distance(contour[i],contour[index])
-
-    return suma
-
-def getDistSum(apprx, i, j, k , o):
+def calculateSumDistanceForList(apprx, points, i, j, k, o):
     suma = 0.0
-    suma += distance(apprx[i], apprx[j]) + distance(apprx[i], apprx[k]) + distance(apprx[i], apprx[o])
-    suma += distance(apprx[j], apprx[k]) + distance(apprx[j], apprx[o])
-    suma += distance(apprx[k], apprx[o])
+    for p1 in points:
+        for p2 in points:
+            if p1 != p2:
+                suma += distancePointToPoint(apprx[p1], apprx[p2])
     return suma
 
 def findEdges(rgba):
@@ -221,38 +98,48 @@ def findEdges(rgba):
     img2 = np.zeros((img1.shape[0] + 20, img1.shape[1] + 20))
     img2[10:img1.shape[0] + 10, 10:img1.shape[1] + 10] = img1
     contours = find_contours(img2, 0)
-    #plt.imshow(img2)
-    #plt.show()
     contour=contours[0]
     apprx=approximate_polygon(contours[0], tolerance=15.0)
 
     #print apprx
     maxpoints=[]
-    #for i in range(4):
-    #    maxi=0
-    #    maxsum=0.0
-    #    for j in range(len(apprx)):
-    #        #csum=getSegmentSum(apprx,j)
-    #        csum=getDistancesSum(apprx,j)+getSegmentSum(apprx,j)*0.5*float(len(apprx))
-    #        if (csum>maxsum and not (containsPoint(maxpoints,apprx[j]) or countPointsWithinRadius(apprx,apprx[j],15)>0)):
-    #            maxsum=csum
-    #            maxi=j
-    #   maxpoints.append(apprx[maxi])
 
     print(len(apprx))
 
-    maxa, maxb, maxc, maxd, maxval = 0,0,0,0,0
+    maxa, maxb, maxc, maxd, maxval = (0,0,0,0,0)
     for i in range(len(apprx)-1):
         for j in range(i+1, len(apprx)-1):
             for k in range(j+1, len(apprx)-1):
                 for o in range(k+1, len(apprx)-1):
-                    csum = getDistSum(apprx, i, j, k, o) + getSegmentSumFor4(apprx, i, j, k, o)
+                    csum = getDistSum(apprx, i, j, k, o) + calculateNearestSegmentsLenghtForList(apprx, [i, j, k, o])
                     if csum > maxval:
                         maxval, maxa, maxb, maxc, maxd = csum, i, j, k, o
     maxpoints.append(apprx[maxa])
     maxpoints.append(apprx[maxb])
     maxpoints.append(apprx[maxc])
     maxpoints.append(apprx[maxd])
+
+    characteristicSegments=[]
+    apprx=apprx[1:]
+    for i in range(len(maxpoints)):
+        for j in range(len(apprx)):
+            if ((apprx[j]==maxpoints[i-1]).all()):
+                index1=j
+            if ((apprx[j]==maxpoints[i]).all()):
+                index2=j
+        if ((index1+1)<len(apprx)):
+            d1=distancePointToPoint(apprx[index1],apprx[index1+1])
+        else:
+            d1=distancePointToPoint(apprx[index1],apprx[0])
+        d2=distancePointToPoint(apprx[index2-1],apprx[index2])
+        if (d1==d2==distancePointToPoint(apprx[index1],apprx[index2])):
+            d1=0.0
+            d2=0.0
+        if ((index1+1)<len(apprx)):
+            print "distances",apprx[index1],apprx[index1+1],d1,apprx[index2-1],apprx[index2],d2
+        else:
+            print "distances",apprx[index1],apprx[0],d1,apprx[index2-1],apprx[index2],d2
+        characteristicSegments.append([d1,d2])
 
     #print(apprx)
     #print(maxpoints)
@@ -267,9 +154,9 @@ def findEdges(rgba):
     plt.plot(maxp[:,1],maxp[:,0], marker='o', color='r', ls='')
     plt.show()
 
-    for i in range(len(contour)):
-        colour=rgba[contour[i][0]-10,contour[i][1]-10,:]
-        print (contour[i], colour)
+   # for i in range(len(contour)):
+   #     colour=rgba[contour[i][0]-10,contour[i][1]-10,:]
+   #     print contour[i], colour
 
     for i in range(4):
         tempc=[]
@@ -296,62 +183,22 @@ def findEdges(rgba):
 
     #for edge in result:
     #    print("Is blob: ", isBlob(rgba, edge))
+    return result, characteristicSegments
 
-    return result
-
-def avgColour(edge,img):
-    suma=[0,0,0]
-    for i in range(len(edge)):
-        for j in range(len(suma)):
-            suma[j]+=img[edge[i][0]-10,edge[i][1]-10,j]
-    result=[0.0,0.0,0.0]
-    for i in range(len(suma)):
-        result[i]=float(suma[i])/float(255*len(edge))
-    return result
-
-def compareAverageColour(edge1,edge2,img1,img2):
-    col1=avgColour(edge1,img1)
-    col2=avgColour(edge2,img2)
-    suma=0.0
-    for i in range(3):
-        suma+=abs(col1[i]-col2[i])
-    suma=suma/3.0
-    return suma
-
-def compareShape(edges1,edges2):
-    #img3=transformImage(img1)
-    #img4=transformImage(img2)
-    #contours1=getContour(img1)
-    #contours2=getContour(img2)
-    #contours1=find_contours(img1[:,:,-1],0)
-    #contours2=find_contours(img2,0)
-    #edges1=findEdges(img1)
-    #edges2=findEdges(img2)
-    mincomp=100.0
-    for edge1 in edges1:
-        for edge2 in edges2:
-            #print edge1
-            comp=cv2.matchShapes(edge1,edge2,1,0.0)
-            #coloursComp=compareAverageColour(edge1,edge2,img1,img2)
-            #comp2=comp+3.0*coloursComp
-            if (comp<mincomp and len(edge1)>5 and len(edge2)>5):
-                mincomp=comp
-            #break
-        #break
-    #print edges1[0]
-    #cnt1=contours1[0]
-    #print cnt1
-    #cnt2=contours2[0]
-    return mincomp
-    #return cv2.matchShapes(cnt1,cnt2,1,0.0)
+def compareDistances(shape1,shape2):
+    pass
 
 def main():
     path=sys.argv[1]
     N=int(sys.argv[2])
-    images=loadImages(path,N)
+    images=(path,N)
     shapes=[]
+    seg=[]
     for i in range(len(images)):
-        shapes.append(findEdges(images[i]))
+        edges,segments=findEdges(images[i])
+        shapes.append(edges)
+        seg.append(segments)
+        #shapes.append(findEdges(images[i]))
     for i in range(len(shapes)):
         compares=np.ones(len(shapes))
         #print compares
@@ -359,7 +206,9 @@ def main():
             shape1=shapes[i]
             shape2=shapes[j]
             #compareShape(img1,img2)
-            compares[j]=compareShape(shape1,shape2)
+            print "Compare",i,j, compareByProportions(seg[i],seg[j])
+            #compares[j]=compareShape(shape1,shape2)
+            compares[j]=compareByProportions(seg[i],seg[j])
             #print i,j,compareShape(img1,img2)
             #plt.imshow(img1)
             #plt.show()
@@ -369,8 +218,5 @@ def main():
         print( best)
         #break
     descriptions=[]
-    #for img in images:
-    #    descriptions.append(describeImage(img))
-    #doWork(descriptions)
 
 main()
