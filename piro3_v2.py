@@ -18,6 +18,9 @@ def calcA(a, b):
 def calcC(a, b):
     return ((a[1] * (b[0] - a[0])) / (b[1] - a[1])) * -1.0 + a[0]
 
+def calculateDistance(A,B,C,p):
+    return abs(A * p[1] + B * p[0] + C) / math.sqrt(A * A + B * B)
+
 def findDescriptivePoint(contour):
     a = contour[0]
     b = contour[len(contour) - 1]
@@ -30,7 +33,7 @@ def findDescriptivePoint(contour):
     maxP = a
 
     for p in contour:
-        dist = abs(A * p[1] + B * p[0] + C) / math.sqrt(A * A + B * B)
+        dist = calculateDistance(A,B,C,p)
         if dist > max:
             max = dist
             maxP = p
@@ -239,7 +242,7 @@ def findEdges(rgba):
     #            maxi=j
     #   maxpoints.append(apprx[maxi])
 
-    print(len(apprx))
+    #print(len(apprx))
 
     maxa, maxb, maxc, maxd, maxval = 0,0,0,0,0
     for i in range(len(apprx)-1):
@@ -254,6 +257,28 @@ def findEdges(rgba):
     maxpoints.append(apprx[maxc])
     maxpoints.append(apprx[maxd])
 
+    characteristicSegments=[]
+    apprx=apprx[1:]
+    for i in range(len(maxpoints)):
+        for j in range(len(apprx)):
+            if ((apprx[j]==maxpoints[i-1]).all()):
+                index1=j
+            if ((apprx[j]==maxpoints[i]).all()):
+                index2=j
+        if ((index1+1)<len(apprx)):
+            d1=distance(apprx[index1],apprx[index1+1])
+        else:
+            d1=distance(apprx[index1],apprx[0])
+        d2=distance(apprx[index2-1],apprx[index2])
+        if (d1==d2==distance(apprx[index1],apprx[index2])):
+            d1=0.0
+            d2=0.0
+        #if ((index1+1)<len(apprx)):
+        #    print "distances",apprx[index1],apprx[index1+1],d1,apprx[index2-1],apprx[index2],d2
+        #else:
+        #    print "distances",apprx[index1],apprx[0],d1,apprx[index2-1],apprx[index2],d2
+        characteristicSegments.append([d1,d2])
+
     #print(apprx)
     #print(maxpoints)
 
@@ -261,15 +286,15 @@ def findEdges(rgba):
     fstart=0
     #print maxpoints
 
-    plt.imshow(img2)
-    plt.plot(apprx[:,1],apprx[:,0])
-    maxp=np.asarray(maxpoints)
-    plt.plot(maxp[:,1],maxp[:,0], marker='o', color='r', ls='')
-    plt.show()
+    #plt.imshow(img2)
+    #plt.plot(apprx[:,1],apprx[:,0])
+    #maxp=np.asarray(maxpoints)
+    #plt.plot(maxp[:,1],maxp[:,0], marker='o', color='r', ls='')
+    #plt.show()
 
-    for i in range(len(contour)):
-        colour=rgba[contour[i][0]-10,contour[i][1]-10,:]
-        print (contour[i], colour)
+   # for i in range(len(contour)):
+   #     colour=rgba[contour[i][0]-10,contour[i][1]-10,:]
+   #     print contour[i], colour
 
     for i in range(4):
         tempc=[]
@@ -294,10 +319,10 @@ def findEdges(rgba):
         result.append(np.asarray(tempc))
     #print 'Result:',result
 
-    #for edge in result:
-    #    print("Is blob: ", isBlob(rgba, edge))
+    return result, characteristicSegments
 
-    return result
+    #for edge in result:
+     #   print("Is blob: ", isBlob(rgba, edge))
 
 def avgColour(edge,img):
     suma=[0,0,0]
@@ -332,6 +357,7 @@ def compareShape(edges1,edges2):
         for edge2 in edges2:
             #print edge1
             comp=cv2.matchShapes(edge1,edge2,1,0.0)
+            #print comp, edge1[0],edge1[-1], edge2[0],edge2[-1]
             #coloursComp=compareAverageColour(edge1,edge2,img1,img2)
             #comp2=comp+3.0*coloursComp
             if (comp<mincomp and len(edge1)>5 and len(edge2)>5):
@@ -345,13 +371,154 @@ def compareShape(edges1,edges2):
     return mincomp
     #return cv2.matchShapes(cnt1,cnt2,1,0.0)
 
+def compareByProportions(seg1,seg2):
+    mincomp=100.0
+    for i in range(len(seg1)):
+        for j in range(len(seg2)):
+            if (seg1[i][0]==0.0 or seg1[i][1]==0.0 or seg2[j][0]==0.0 or seg2[j][1]==0.0):
+                comp=200.0
+            else:
+                d1=seg1[i][0]/seg1[i][1]
+                d2=seg2[j][0]/seg2[j][1]
+                print d1,d2
+                if ((d1>1.0 and d2<1.0) or (d1<1.0 and d2>1.0)):
+                    d1=1.0/d1
+                #d1=seg1[i][1]/seg2[j][0]
+                #d2=seg1[i][0]/seg2[j][1]
+                comp=abs((d1/d2)-1.0)
+            if (comp<mincomp):
+                mincomp=comp
+    return mincomp
+
+def calculateEdgeHistogram(edge):
+    a=edge[0]
+    b=edge[-1]
+    A = calcA(a, b)
+    B = -1.0
+    C = calcC(a, b)
+    d=distance(a,b)
+    hist=np.zeros(100)
+    #print a,b,d
+    for i in range(len(edge)):
+        ratio=0.0
+        if (a[1]==b[1]):
+            ratio=abs(a[1]-edge[i][1])/d
+        else:
+            ratio=calculateDistance(A,B,C,edge[i])/d
+        #print A,B,C,edge[i],calculateDistance(A,B,C,edge[i])
+        index=int(ratio*100.0)
+        hist[index]+=(1.0/float(len(edge)))
+    return hist
+
+def compareHistograms(hist1,hist2):
+    error=0.0
+    for i in range(len(hist1)):
+        error+=((hist1[i]-hist2[i])**2)
+    return error
+
+def compareDistances(shape1,shape2):
+    mincomp=10000.0
+    for edge1 in shape1:
+        hist1=calculateEdgeHistogram(edge1)
+        for edge2 in shape2:
+            hist2=calculateEdgeHistogram(edge2)
+            comp=compareHistograms(hist1,hist2)
+            if (comp<mincomp and len(edge1)>5 and len(edge2)>5):
+                mincomp=comp
+    return mincomp
+
+def colorHist(edge,img,channel):
+    counter=0
+    histtemp=np.zeros(100)
+    for i in range(len(edge)/10):
+        j=i*10
+        y=edge[j][0]-10
+        x=edge[j][1]-10
+        square=img[max(0,y-5):min(y+5,img.shape[0]),max(0,x-5):min(x+5,img.shape[1]),:]
+        for y1 in range(square.shape[0]):
+            for x1 in range(square.shape[1]):
+                value=square[y1,x1,:]
+                if (value[-1]>0):
+                    counter+=1
+                    index=int(float(value[channel])/float(len(histtemp)))
+                    histtemp[index]+=1
+    hist=np.zeros(100)
+    for i in range(len(hist)):
+        hist[i]=float(histtemp[i])/float(counter)
+    return hist
+
+
+def compareColours(shape1,shape2,img1,img2):
+    mincomp=10000.0
+    for edge1 in shape1:
+        histr1=colorHist(edge1,img1,0)
+        histg1=colorHist(edge1,img1,1)
+        histb1=colorHist(edge1,img1,2)
+        for edge2 in shape2:
+            histr2=colorHist(edge2,img2,0)
+            histg2=colorHist(edge2,img2,1)
+            histb2=colorHist(edge2,img2,2)
+            comp=compareHistograms(histr1,histr2)+compareHistograms(histg1,histg2)+compareHistograms(histb1,histb2)
+            if (comp<mincomp and len(edge1)>5 and len(edge2)>5):
+                mincomp=comp
+    return mincomp
+
+def mostDistantRatio(edge):
+    maxratio=0.0
+    a=edge[0]
+    b=edge[-1]
+    A = calcA(a, b)
+    B = -1.0
+    C = calcC(a, b)
+    d=distance(a,b)
+    for i in range(len(edge)):
+        ratio=calculateDistance(A,B,C,edge[i])/d
+        if (ratio>maxratio):
+            maxratio=ratio
+    return maxratio
+
+def compareDistantPoint(shape1,shape2):
+    mincomp=10000.0
+    for edge1 in shape1:
+        d1=mostDistantRatio(edge1)
+        for edge2 in shape2:
+            d2=mostDistantRatio(edge2)
+            comp=20000.0
+            if (d1>=d2 and d2!=0.0):
+                comp=abs((d1/d2)-1.0)
+            if (d2>=d1 and d1!=0.0):
+                comp=abs((d2/d1)-1.0)
+            if (comp<mincomp and len(edge1)>5 and len(edge2)>5):
+                mincomp=comp
+    return mincomp
+
+def calculateNeighbours(shape):
+    counter=0
+    for edge in shape:
+        if (len(edge)>10):
+            counter+=1
+    return counter
+
+def printResult(best,shape):
+    number=calculateNeighbours(shape)
+    for i in range(number):
+        print best[i],
+    sys.stdout.write('%c'%'\t')
+    for i in range(number,len(best)):
+        print best[i],
+    sys.stdout.write('%c'%'\n')
+
 def main():
     path=sys.argv[1]
     N=int(sys.argv[2])
     images=loadImages(path,N)
     shapes=[]
+    seg=[]
     for i in range(len(images)):
-        shapes.append(findEdges(images[i]))
+        edges,segments=findEdges(images[i])
+        shapes.append(edges)
+        seg.append(segments)
+        #shapes.append(findEdges(images[i]))
     for i in range(len(shapes)):
         compares=np.ones(len(shapes))
         #print compares
@@ -359,14 +526,19 @@ def main():
             shape1=shapes[i]
             shape2=shapes[j]
             #compareShape(img1,img2)
-            compares[j]=compareShape(shape1,shape2)
+            #print "Compare",i,j, compareByProportions(seg[i],seg[j])
+            #compares[j]=compareShape(shape1,shape2)
+            #compares[j]=compareByProportions(seg[i],seg[j])
+            compares[j]=compareColours(shape1,shape2,images[i],images[j])+compareShape(shape1,shape2)+compareDistantPoint(shape1,shape2)+compareDistances(shape1,shape2)
+            #compares[j]=compareDistances(shape1,shape2)
+            #print "Compare",i,j,compares[j]
             #print i,j,compareShape(img1,img2)
             #plt.imshow(img1)
             #plt.show()
             #break
         compares[i]=100.0
         best=np.argsort(compares)
-        print( best)
+        printResult(best,shapes[i])
         #break
     descriptions=[]
     #for img in images:
