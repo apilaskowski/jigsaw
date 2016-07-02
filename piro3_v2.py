@@ -316,7 +316,7 @@ def findEdges(rgba):
         tempc.append(contour[i])
     for i in range(1,fstart):
         tempc.append(contour[i])
-        result.append(np.asarray(tempc))
+    result.append(np.asarray(tempc))
     #print 'Result:',result
 
     return result, characteristicSegments
